@@ -9,8 +9,12 @@ import tifffile as tiff
 # ==========================================
 BG_FOLDER = r"D:\Image Segmentation Task\DATA_SEG\8kV_ROI2_FV_75kfps_0p5slpm_R1_bg_C001H001S0001"
 INPUT_FOLDER = r"D:\Image Segmentation Task\DATA_SEG\8kV_ROI2_FV_75kfps_0p5slpm_R1_C001H001S0001"
-OUTPUT_FOLDER = r"D:\Image Segmentation Task\Test3\8kV_Preprocessed_Results\PP4_60_(CLOSE_KERNEL_SIZE_11)_(CLOSE_ITERATIONS_1)"
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+OUTPUT_BASE = r"D:\Image Segmentation Task\8kV_Preprocessed_Results\PP_60_(CLOSE_KERNEL_SIZE_11)_(CLOSE_ITERATIONS_1)"
+FRAMES_FOLDER = os.path.join(OUTPUT_BASE, "Frames")
+VIDEO_FOLDER = os.path.join(OUTPUT_BASE, "Video")
+# Create both folders safely
+os.makedirs(FRAMES_FOLDER, exist_ok=True)
+os.makedirs(VIDEO_FOLDER, exist_ok=True)
 
 AVG_COUNT = 100 
 
@@ -18,6 +22,7 @@ AVG_COUNT = 100
 MIN_AREA_THRESHOLD = 60 # Step 1: Erase anything smaller than 60 pixels
 CLOSE_KERNEL_SIZE = 11   # Step 2: Fill holes inside the surviving objects (Must be ODD)
 CLOSE_ITERATIONS = 1
+
 
 # ==========================================
 # 1. UTILITY FUNCTIONS
@@ -103,11 +108,11 @@ def run_pipeline():
         if frame is not None: acc += frame
     avg_bg = (acc / bg_limit).astype(np.uint16)
 
-    target_files = sorted([f for f in os.listdir(INPUT_FOLDER) if f.lower().endswith('.tif')])[:4000]
+    target_files = sorted([f for f in os.listdir(INPUT_FOLDER) if f.lower().endswith('.tif')])[:1800]
 
-    # Set up the 3-panel video output with the requested simple name
+    # Set up the 3-panel video output to save ONLY in the VIDEO_FOLDER
     video_w, video_h = (w + 2) * 3, (h + 2) # Adjusted for the 1-pixel borders
-    video_path = os.path.join(OUTPUT_FOLDER, "8kv_Pre_processed.mp4")
+    video_path = os.path.join(VIDEO_FOLDER, "8kv_Pre_processed.mp4")
     writer = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (video_w, video_h))
 
     for f in tqdm(target_files, desc="Processing"):
@@ -123,8 +128,8 @@ def run_pipeline():
         # --- Processing ---
         clean_16bit = isolate_with_custom_pipeline(diff_16bit, MIN_AREA_THRESHOLD, CLOSE_KERNEL_SIZE, CLOSE_ITERATIONS)
         
-        # Save the actual cleaned frames directly into the simplified folder
-        tiff.imwrite(os.path.join(OUTPUT_FOLDER, f), clean_16bit)
+        # Save the actual cleaned frames directly into the FRAMES_FOLDER
+        tiff.imwrite(os.path.join(FRAMES_FOLDER, f), clean_16bit)
 
         # --- Panel 3 Logic: Pure Visual Delta ---
         delta_16bit = cv2.absdiff(diff_16bit, clean_16bit)
@@ -138,7 +143,9 @@ def run_pipeline():
         writer.write(combined_frame)
 
     writer.release()
-    print(f"\n[SUCCESS] Pipeline completed. Files and Video saved to: {OUTPUT_FOLDER}")
+    print(f"\n[SUCCESS] Pipeline completed.")
+    print(f"-> Frames saved to: {FRAMES_FOLDER}")
+    print(f"-> Video saved to: {VIDEO_FOLDER}")
 
 if __name__ == "__main__":
     run_pipeline()
